@@ -13,19 +13,19 @@ contract PN721 {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        state_vars::{map::Map, set::Set, public_state::PublicState, immutable_singleton::ImmutableSingleton},
+        state_vars::{map::Map, set::Set, public_state::PublicState, singleton::Singleton},
         types::type_serialization::field_serialization::{
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
     };
-
+ 
     use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
 
     struct Storage {
         // the attributes of the private NFT
         size: PublicState<Field, FIELD_SERIALIZED_LEN>,
         admin: PublicState<Field, FIELD_SERIALIZED_LEN>,
-        owners: Map<Set<AddressNote, ADDRESS_NOTE_LEN>>,
+        owners: Map<Singleton<AddressNote, ADDRESS_NOTE_LEN>>,
         projects: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
         tiers: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
         creation: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
@@ -42,7 +42,7 @@ contract PN721 {
                     context,
                     3, // Storage slot
                     |context, slot| {
-                        Set::new(context, slot, AddressNoteMethods)
+                        Singleton::new(context, slot, AddressNoteMethods)
                     },
                 ),
                 projects: Map::new(
@@ -104,7 +104,10 @@ contract PN721 {
         let owner = context.msg_sender();
         let new_size = storage.size.read() + 1;
         storage.projects.at(new_size).write(project);
-        storage.owners.at(new_size).write(owner);
+
+        let mut owner_note = AddressNote::new(owner);
+        storage.owners.at(new_size).replace(&mut owner_note);
+
         storage.tiers.at(new_size).write(tier);
         storage.creation.at(new_size).write(now);
         
@@ -121,10 +124,11 @@ contract PN721 {
         let sender = AddressNote::new(sender_);
         let cur_owner = storage.owners.at(id);
         assert (cur_owner == sender);
-        let mut note = AddressNote::new(id, recipient);
+        let mut recipient_note = AddressNote::new(recipient);
+        
         
 
-        storage.owners.write(id, recipient);
+        storage.owners.at(id).replace(&mut recipient_note);
     }
 
     unconstrained fn getNFT(

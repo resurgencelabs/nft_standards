@@ -9,7 +9,7 @@ struct AddressNote {
     address: Field,
     header: NoteHeader,
 }
-
+ 
 impl AddressNote {
     pub fn new(address: Field) -> Self {
         AddressNote {
