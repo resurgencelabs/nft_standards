@@ -1,3 +1,5 @@
+mod address_note;
+
 contract PN721 {
     use dep::std::option::Option;
     use dep::value_note::{
@@ -11,32 +13,67 @@ contract PN721 {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        state_vars::{map::Map, set::Set, public_state::PublicState},
+        state_vars::{map::Map, set::Set, public_state::PublicState, immutable_singleton::ImmutableSingleton},
+        types::type_serialization::field_serialization::{
+            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
+        },
     };
+
     use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
 
     struct Storage {
         // the attributes of the private NFT
-        size: PublicState<u16, 1>,
-        admin: PublicState<Field, 1>,
+        size: PublicState<Field, FIELD_SERIALIZED_LEN>,
+        admin: PublicState<Field, FIELD_SERIALIZED_LEN>,
         owners: Map<Set<AddressNote, ADDRESS_NOTE_LEN>>,
-        projects: Map<PublicState<Field, Field>>,
-        tiers: Map<PublicState<Field, u4>>,
-        creation: Map<PublicState<Field, Field>>,
-        beneficiaries: Map<PublicState<Field, Field>>,
+        projects: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        tiers: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        creation: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        beneficiaries: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        
     }
 
     impl Storage {
         fn init(context: Context) -> pub Self {
             Storage {
-                size: 0,
+                size: PublicState::new(context, 1, FieldSerializationMethods),
+                admin: PublicState::new(context, 2, FieldSerializationMethods),
                 owners: Map::new(
                     context,
-                    1, // Storage slot
+                    3, // Storage slot
                     |context, slot| {
                         Set::new(context, slot, AddressNoteMethods)
                     },
                 ),
+                projects: Map::new(
+                    context,
+                    4,
+                    |context, slot| {
+                        PublicState::new(context, slot, FieldSerializationMethods)
+                    },
+                ),
+                tiers: Map::new(
+                    context,
+                    5,
+                    |context, slot| {
+                        PublicState::new(context, slot, FieldSerializationMethods)
+                    },
+                ),
+                creation: Map::new(
+                    context,
+                    6,
+                    |context, slot| {
+                        PublicState::new(context, slot, FieldSerializationMethods)
+                    },
+                ),
+                beneficiaries: Map::new(
+                    context,
+                    7,
+                    |context, slot| {
+                        PublicState::new(context, slot, FieldSerializationMethods)
+                    },
+                ),
+
                 
                
             }
@@ -48,8 +85,11 @@ contract PN721 {
     fn constructor( 
        admin_: Field 
     )  {
+        
         storage.admin.write(admin_);
+        //storage.admin.write(admin_);
         storage.size.write(0);
+        
         
         
     }
@@ -58,15 +98,15 @@ contract PN721 {
     #[aztec(private)]
     fn mint(
         project: Field,
-        tier: u4, 
+        tier: Field, 
         now: Field
     )  {
         let owner = context.msg_sender();
         let new_size = storage.size.read() + 1;
-        storage.projects.write(new_size, project);
-        storage.owners.write(new_size, owner);
-        storage.tiers.write(new_size, tier);
-        storage.creation.write(new_size, now);
+        storage.projects.at(new_size).write(project);
+        storage.owners.at(new_size).write(owner);
+        storage.tiers.at(new_size).write(tier);
+        storage.creation.at(new_size).write(now);
         
     }
 
@@ -77,24 +117,26 @@ contract PN721 {
         recipient: Field,
     )  {
         
-        let sender = context.msg_sender();
-
+        let sender_ = context.msg_sender() as Field;
+        let sender = AddressNote::new(sender_);
         let cur_owner = storage.owners.at(id);
         assert (cur_owner == sender);
+        let mut note = AddressNote::new(id, recipient);
+        
 
         storage.owners.write(id, recipient);
     }
 
     unconstrained fn getNFT(
         id: Field,
-    ) -> [Field] {
+    ) -> [PublicState<Field, 1>] {
         
-        let owner = storage.owners.at(id);
+        
         let tier = storage.tiers.at(id);
         let creation = storage.creation.at(id);
         let project = storage.projects.at(id);
         
-        let res = [owner, tier as Field, project, creation];
+        let res = [tier, project, creation];
 
         res
         
