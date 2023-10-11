@@ -118,56 +118,24 @@ contract PN721 {
         storage.owners.at(id).replace(&mut recipient_note);
     }
 
-    unconstrained fn getProject(
-        id: Field,
-    ) -> Field {
-        
-        let pub_payload = storage.nft_data.at(id).read();
-        
-        //let tier = pub_payload.tier;
-        //let creation = pub_payload.creation;
-        let project = pub_payload.project;
-        
-        //let res = [project, tier, creation];
 
-        project
-        
-        
-    }
-
-    unconstrained fn getTier(
+    unconstrained fn getData(
         id: Field,
-    ) -> Field {
+    ) -> [Field; 3] {
         
         let pub_payload = storage.nft_data.at(id).read();
         
         let tier = pub_payload.tier;
-        //let creation = pub_payload.creation;
-        //let project = pub_payload.project;
-        
-        //let res = [project, tier, creation];
-
-        tier
-        
-        
-    }
-
-    unconstrained fn getCreation(
-        id: Field,
-    ) -> Field {
-        
-        let pub_payload = storage.nft_data.at(id).read();
-        
-        //let tier = pub_payload.tier;
         let creation = pub_payload.creation;
-        //let project = pub_payload.project;
+        let project = pub_payload.project;
         
-        //let res = [project, tier, creation];
+        let res = [project, tier, creation];
 
-        creation
+        res
         
         
     }
+
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
