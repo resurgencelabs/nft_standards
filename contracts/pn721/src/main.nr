@@ -1,4 +1,5 @@
 mod address_note;
+mod public_payload;
 
 contract PN721 {
     use dep::std::option::Option;
@@ -20,16 +21,15 @@ contract PN721 {
     };
  
     use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
+    use crate::public_payload::{PublicPayload, PUBLIC_PAYLOAD_SERIALIZED_LEN, PublicPayloadSerializationMethods};
 
     struct Storage {
         // the attributes of the private NFT
         size: PublicState<Field, FIELD_SERIALIZED_LEN>,
         admin: PublicState<Field, FIELD_SERIALIZED_LEN>,
         owners: Map<Singleton<AddressNote, ADDRESS_NOTE_LEN>>,
-        projects: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
-        tiers: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
-        creation: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
-        beneficiaries: Map<PublicState<Field, FIELD_SERIALIZED_LEN>>,
+        nft_data: Map<PublicState<PublicPayload, PUBLIC_PAYLOAD_SERIALIZED_LEN>>,
+        
         
     }
 
@@ -45,32 +45,11 @@ contract PN721 {
                         Singleton::new(context, slot, AddressNoteMethods)
                     },
                 ),
-                projects: Map::new(
+                nft_data: Map::new(
                     context,
                     4,
                     |context, slot| {
-                        PublicState::new(context, slot, FieldSerializationMethods)
-                    },
-                ),
-                tiers: Map::new(
-                    context,
-                    5,
-                    |context, slot| {
-                        PublicState::new(context, slot, FieldSerializationMethods)
-                    },
-                ),
-                creation: Map::new(
-                    context,
-                    6,
-                    |context, slot| {
-                        PublicState::new(context, slot, FieldSerializationMethods)
-                    },
-                ),
-                beneficiaries: Map::new(
-                    context,
-                    7,
-                    |context, slot| {
-                        PublicState::new(context, slot, FieldSerializationMethods)
+                        PublicState::new(context, slot, PublicPayloadSerializationMethods)
                     },
                 ),
 
@@ -96,20 +75,27 @@ contract PN721 {
 
     // Mints nft with said specifications and assigns ownership to owner
     #[aztec(private)]
-    fn mint(
-        project: Field,
-        tier: Field, 
+    fn mint( 
+        proj: Field,
+        tr: Field, 
         now: Field
     )  {
         let owner = context.msg_sender();
         let new_size = storage.size.read() + 1;
-        storage.projects.at(new_size).write(project);
+        storage.size.write(new_size);
+
+        let pub_payload = PublicPayload {
+            project: proj,
+            tier: tr,
+            creation: now,
+        };
+
+        storage.nft_data.at(new_size).write(pub_payload);
+        
 
         let mut owner_note = AddressNote::new(owner);
         storage.owners.at(new_size).replace(&mut owner_note);
 
-        storage.tiers.at(new_size).write(tier);
-        storage.creation.at(new_size).write(now);
         
     }
 
@@ -120,10 +106,11 @@ contract PN721 {
         recipient: Field,
     )  {
         
-        let sender_ = context.msg_sender() as Field;
-        let sender = AddressNote::new(sender_);
-        let cur_owner = storage.owners.at(id);
-        assert (cur_owner == sender);
+        //let sender_ = context.msg_sender() as Field;
+        //let sender = AddressNote::new(sender_);
+        //let cur_owner = storage.owners.at(id);
+        //assert (cur_owner == sender);
+        //not necessary because only the owner can access the AddressNote
         let mut recipient_note = AddressNote::new(recipient);
         
         
@@ -131,18 +118,54 @@ contract PN721 {
         storage.owners.at(id).replace(&mut recipient_note);
     }
 
-    unconstrained fn getNFT(
+    unconstrained fn getProject(
         id: Field,
-    ) -> [PublicState<Field, 1>] {
+    ) -> Field {
         
+        let pub_payload = storage.nft_data.at(id).read();
         
-        let tier = storage.tiers.at(id);
-        let creation = storage.creation.at(id);
-        let project = storage.projects.at(id);
+        //let tier = pub_payload.tier;
+        //let creation = pub_payload.creation;
+        let project = pub_payload.project;
         
-        let res = [tier, project, creation];
+        //let res = [project, tier, creation];
 
-        res
+        project
+        
+        
+    }
+
+    unconstrained fn getTier(
+        id: Field,
+    ) -> Field {
+        
+        let pub_payload = storage.nft_data.at(id).read();
+        
+        let tier = pub_payload.tier;
+        //let creation = pub_payload.creation;
+        //let project = pub_payload.project;
+        
+        //let res = [project, tier, creation];
+
+        tier
+        
+        
+    }
+
+    unconstrained fn getCreation(
+        id: Field,
+    ) -> Field {
+        
+        let pub_payload = storage.nft_data.at(id).read();
+        
+        //let tier = pub_payload.tier;
+        let creation = pub_payload.creation;
+        //let project = pub_payload.project;
+        
+        //let res = [project, tier, creation];
+
+        creation
+        
         
     }
 
