@@ -18,11 +18,13 @@ contract PN721 {
         types::type_serialization::field_serialization::{
             FieldSerializationMethods, FIELD_SERIALIZED_LEN,
         },
+        selector::compute_selector,
+        
     };
  
     use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
     use crate::public_payload::{PublicPayload, PUBLIC_PAYLOAD_SERIALIZED_LEN, PublicPayloadSerializationMethods};
-
+    
     struct Storage {
         // the attributes of the private NFT
         size: PublicState<Field, FIELD_SERIALIZED_LEN>,
@@ -64,17 +66,24 @@ contract PN721 {
     fn constructor( 
        admin_: Field 
     )  {
-        
-        storage.admin.write(admin_);
+        let selector = compute_selector("_init((Field))");
+        context.call_public_function(context.this_address(), selector, [admin_]);
         //storage.admin.write(admin_);
-        storage.size.write(0);
-        
+        //storage.admin.write(admin_);
+        //storage.size.write(0);
+             
         
         
     }
 
+    #[aztec(public)]
+    internal fn _init(admin_: Field) {
+        storage.admin.write(admin_);
+        storage.size.write(0);
+    }
+
     // Mints nft with said specifications and assigns ownership to owner
-    #[aztec(private)]
+    #[aztec(public)]
     fn mint( 
         proj: Field,
         tr: Field, 
