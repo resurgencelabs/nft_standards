@@ -1,35 +1,36 @@
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
-use dep::aztec::note::utils::compute_unique_siloed_note_hash;
+use dep::aztec::note::utils::compute_siloed_note_hash;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 
-global ADDRESS_NOTE_LEN: Field = 1;
+global ADDRESS_NOTE_LEN: Field = 2;
 
+// Stores an address
 struct AddressNote {
     address: Field,
+    owner: Field,
     header: NoteHeader,
 }
- 
+
 impl AddressNote {
-    pub fn new(address: Field) -> Self {
+    pub fn new(address: Field, owner: Field) -> Self {
         AddressNote {
             address,
+            owner,
             header: NoteHeader::empty(),
         }
     }
 
-    pub fn serialize(self) -> [Field; ADDRESS_NOTE_LEN] {
-        let mut res: [Field; ADDRESS_NOTE_LEN] = [0; ADDRESS_NOTE_LEN];
-        res[0] = self.address;
-        res
+    pub fn serialize(self) -> [Field; ADDRESS_NOTE_LEN]{
+        [self.address, self.owner]
     }
 
     pub fn compute_nullifier(self) -> Field {
-        let unique_siloed_note_hash = compute_unique_siloed_note_hash(AddressNoteMethods, self);
-        let secret = get_secret_key(self.address);
+        let siloed_note_hash = compute_siloed_note_hash(AddressNoteMethods, self);
+        let secret = get_secret_key(self.owner);
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
-            unique_siloed_note_hash,
+            siloed_note_hash,
             secret.low,
             secret.high,
         ])[0]
@@ -43,11 +44,12 @@ impl AddressNote {
 fn deserialize(preimage: [Field; ADDRESS_NOTE_LEN]) -> AddressNote {
     AddressNote {
         address: preimage[0],
+        owner: preimage[1],
         header: NoteHeader::empty(),
     }
 }
 
-fn serialize(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN] {
+fn serialize(note: AddressNote) -> [Field; ADDRESS_NOTE_LEN]{
     note.serialize()
 }
 

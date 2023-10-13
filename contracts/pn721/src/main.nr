@@ -12,6 +12,7 @@ contract PN721 {
         context::{PrivateContext, PublicContext, Context},
         note::{
             note_header::NoteHeader,
+            note_getter_options::NoteGetterOptions,
             utils as note_utils,
         },
         state_vars::{map::Map, set::Set, public_state::PublicState, singleton::Singleton},
@@ -83,11 +84,13 @@ contract PN721 {
         storage.size.write(0);
     }
 
+   
+
     #[aztec(public)]
-    internal fn _add(proj: Field, tr: Field, now: Field, n: Field) {
+    internal fn _add(proj: Field, tr: Field, now: Field) {
         
-        
-        storage.size.write(n);
+        let new_size = storage.size.read() + 1;
+        storage.size.write(new_size);
 
         let pub_payload = PublicPayload {
             project: proj,
@@ -95,7 +98,8 @@ contract PN721 {
             creation: now,
         };
 
-        storage.nft_data.at(n).write(pub_payload);
+        storage.nft_data.at(new_size).write(pub_payload);
+        
 
     }
 
@@ -105,16 +109,17 @@ contract PN721 {
         proj: Field,
         tr: Field, 
         now: Field
-    )  {
+    ) {
         
-        let new_size = storage.size.read() + 1;
-        let selector = compute_selector("_add((Field, Field, Field, Field))");
-        context.call_public_function(context.this_address(), selector, [proj, tr, now, new_size]);
+        
+        let selector = compute_selector("_add(Field, Field, Field)");
+        context.call_public_function(context.this_address(), selector, [proj, tr, now]);
         
         let owner = context.msg_sender();
-        let mut owner_note = AddressNote::new(owner);
-        storage.owners.at(new_size).replace(&mut owner_note);
-
+        let mut owner_note = AddressNote::new(owner, owner);
+        storage.owners.at(1).initialize(&mut owner_note, Option::some(owner));
+        //storage.owners.at(new_size).replace(&mut owner_note);
+        
         
     }
 
@@ -126,7 +131,7 @@ contract PN721 {
     )  {
         
         
-        let mut recipient_note = AddressNote::new(recipient);
+        let mut recipient_note = AddressNote::new(recipient, recipient);
         
         
 
