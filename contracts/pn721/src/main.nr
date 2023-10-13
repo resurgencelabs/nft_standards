@@ -15,9 +15,12 @@ contract PN721 {
             utils as note_utils,
         },
         state_vars::{map::Map, set::Set, public_state::PublicState, singleton::Singleton},
-        types::type_serialization::field_serialization::{
-            FieldSerializationMethods, FIELD_SERIALIZED_LEN,
+        types::type_serialization::{
+            field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
+            bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
+            aztec_address_serialization::{AztecAddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
         },
+        types::address::{AztecAddress},
         selector::compute_selector,
         
     };
@@ -28,7 +31,7 @@ contract PN721 {
     struct Storage {
         // the attributes of the private NFT
         size: PublicState<Field, FIELD_SERIALIZED_LEN>,
-        admin: PublicState<Field, FIELD_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
         owners: Map<Singleton<AddressNote, ADDRESS_NOTE_LEN>>,
         nft_data: Map<PublicState<PublicPayload, PUBLIC_PAYLOAD_SERIALIZED_LEN>>,
         
@@ -39,7 +42,7 @@ contract PN721 {
         fn init(context: Context) -> pub Self {
             Storage {
                 size: PublicState::new(context, 1, FieldSerializationMethods),
-                admin: PublicState::new(context, 2, FieldSerializationMethods),
+                admin: PublicState::new(context, 2, AztecAddressSerializationMethods),
                 owners: Map::new(
                     context,
                     3, // Storage slot
@@ -64,10 +67,10 @@ contract PN721 {
     // Constructs the contract and sets `size` of the collection to 0 at init
     #[aztec(private)]
     fn constructor( 
-       admin_: Field 
+       admin_: AztecAddress 
     )  {
         let selector = compute_selector("_init((Field))");
-        context.call_public_function(context.this_address(), selector, [admin_]);
+        context.call_public_function(context.this_address(), selector, [admin_.address]);
         //storage.admin.write(admin_);
         //storage.admin.write(admin_);
         //storage.size.write(0);
@@ -77,7 +80,7 @@ contract PN721 {
     }
 
     #[aztec(public)]
-    internal fn _init(admin_: Field) {
+    internal fn _init(admin_: AztecAddress) {
         storage.admin.write(admin_);
         storage.size.write(0);
     }
