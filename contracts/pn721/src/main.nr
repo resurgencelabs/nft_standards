@@ -71,9 +71,7 @@ contract PN721 {
     )  {
         let selector = compute_selector("_init((Field))");
         context.call_public_function(context.this_address(), selector, [admin_.address]);
-        //storage.admin.write(admin_);
-        //storage.admin.write(admin_);
-        //storage.size.write(0);
+       
              
         
         
@@ -85,16 +83,11 @@ contract PN721 {
         storage.size.write(0);
     }
 
-    // Mints nft with said specifications and assigns ownership to owner
     #[aztec(public)]
-    fn mint( 
-        proj: Field,
-        tr: Field, 
-        now: Field
-    )  {
-        let owner = context.msg_sender();
-        let new_size = storage.size.read() + 1;
-        storage.size.write(new_size);
+    internal fn _add(proj: Field, tr: Field, now: Field, n: Field) {
+        
+        
+        storage.size.write(n);
 
         let pub_payload = PublicPayload {
             project: proj,
@@ -102,9 +95,23 @@ contract PN721 {
             creation: now,
         };
 
-        storage.nft_data.at(new_size).write(pub_payload);
-        
+        storage.nft_data.at(n).write(pub_payload);
 
+    }
+
+    // Mints nft with said specifications and assigns ownership to owner
+    #[aztec(private)]
+    fn mint( 
+        proj: Field,
+        tr: Field, 
+        now: Field
+    )  {
+        
+        let new_size = storage.size.read() + 1;
+        let selector = compute_selector("_add((Field, Field, Field, Field))");
+        context.call_public_function(context.this_address(), selector, [proj, tr, now, new_size]);
+        
+        let owner = context.msg_sender();
         let mut owner_note = AddressNote::new(owner);
         storage.owners.at(new_size).replace(&mut owner_note);
 
@@ -118,11 +125,7 @@ contract PN721 {
         recipient: Field,
     )  {
         
-        //let sender_ = context.msg_sender() as Field;
-        //let sender = AddressNote::new(sender_);
-        //let cur_owner = storage.owners.at(id);
-        //assert (cur_owner == sender);
-        //not necessary because only the owner can access the AddressNote
+        
         let mut recipient_note = AddressNote::new(recipient);
         
         
@@ -146,6 +149,16 @@ contract PN721 {
         res
         
         
+    }
+
+    unconstrained fn getAdmin() -> Field {
+        let admin = storage.admin.read();
+        admin.address
+    }
+
+    unconstrained fn getSize() -> Field {
+        let s = storage.size.read();
+        s
     }
 
 
