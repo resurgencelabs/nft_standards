@@ -33,7 +33,7 @@ contract PN721 {
         // the attributes of the private NFT
         size: PublicState<Field, FIELD_SERIALIZED_LEN>,
         admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
-        owners: Map<Singleton<AddressNote, ADDRESS_NOTE_LEN>>,
+        owners: Map<Set<AddressNote, ADDRESS_NOTE_LEN>>,
         nft_data: Map<PublicState<PublicPayload, PUBLIC_PAYLOAD_SERIALIZED_LEN>>,
         
         
@@ -48,7 +48,7 @@ contract PN721 {
                     context,
                     3, // Storage slot
                     |context, slot| {
-                        Singleton::new(context, slot, AddressNoteMethods)
+                        Set::new(context, slot, AddressNoteMethods)
                     },
                 ),
                 nft_data: Map::new(
@@ -87,7 +87,7 @@ contract PN721 {
    
 
     #[aztec(public)]
-    internal fn _add(proj: Field, tr: Field, now: Field) {
+    fn mint(proj: Field, tr: Field, now: Field) -> Field{
         
         let new_size = storage.size.read() + 1;
         storage.size.write(new_size);
@@ -99,25 +99,30 @@ contract PN721 {
         };
 
         storage.nft_data.at(new_size).write(pub_payload);
+
+        
+        new_size
         
 
     }
 
+    #[aztec(public)]
+    internal fn _check_id_match(id: Field) {
+        let size = storage.size.read();
+        assert (size == id);
+    }
+
     // Mints nft with said specifications and assigns ownership to owner
     #[aztec(private)]
-    fn mint( 
-        proj: Field,
-        tr: Field, 
-        now: Field
+    fn mint_private( 
+        id: Field
     ) {
-        
-        
-        let selector = compute_selector("_add(Field, Field, Field)");
-        context.call_public_function(context.this_address(), selector, [proj, tr, now]);
+        let selector = compute_selector("_check_id_match(Field)");
+        context.call_public_function(context.this_address(), selector, [id]);
         
         let owner = context.msg_sender();
-        let mut owner_note = AddressNote::new(owner, owner);
-        storage.owners.at(1).initialize(&mut owner_note, Option::some(owner));
+        let mut owner_note = AddressNote::new(id, owner);
+        storage.owners.at(owner).insert(&mut owner_note);
         //storage.owners.at(new_size).replace(&mut owner_note);
         
         
@@ -131,11 +136,23 @@ contract PN721 {
     )  {
         
         
-        let mut recipient_note = AddressNote::new(recipient, recipient);
+        let mut recipient_note = AddressNote::new(id, recipient);
         
         
+        storage.owners.at(recipient).insert(&mut recipient_note);
+        //storage.owners.at(id).replace(&mut recipient_note);
+    }
 
-        storage.owners.at(id).replace(&mut recipient_note);
+    #[aztec(private)]
+    fn read_all_notes(n: Field){
+        let owner = context.msg_sender();
+        let options = NoteGetterOptions::new();
+        let owner_notes = storage.owners.at(owner);
+        let maybe_notes = owner_notes.get_notes(options);
+        //let selector = compute_selector("_check_id_match(Field)");
+        //context.call_public_function(context.this_address(), selector, [maybe_notes.len()]);
+        assert (maybe_notes[n - 1].is_some());
+
     }
 
 
@@ -170,8 +187,8 @@ contract PN721 {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
-    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, preimage)
     }
 }
