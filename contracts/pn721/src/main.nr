@@ -23,7 +23,8 @@ contract PN721 {
         },
         types::address::{AztecAddress},
         selector::compute_selector,
-        
+        log::emit_encrypted_log,
+        oracle::get_public_key::get_public_key,
     };
  
     use crate::address_note::{AddressNote, AddressNoteMethods, ADDRESS_NOTE_LEN};
@@ -122,10 +123,20 @@ contract PN721 {
         
         let owner = context.msg_sender();
         let mut owner_note = AddressNote::new(id, owner);
-        storage.owners.at(owner).insert(&mut owner_note);
+
+        let owner_set = storage.owners.at(owner);
+        owner_set.insert(&mut owner_note);
         //storage.owners.at(new_size).replace(&mut owner_note);
         
-        
+        // Emit the newly created encrypted note preimages via oracle calls.
+        let owner_key = get_public_key(owner);
+        emit_encrypted_log(
+            &mut context,
+            context.this_address(),
+            owner_set.storage_slot,
+            owner_key,
+            owner_note.serialize(),
+        );
     }
 
     // Transfers nft with given `id` from msg_sender to  `recipient`.
@@ -136,10 +147,35 @@ contract PN721 {
     )  {
         
         
-        let mut recipient_note = AddressNote::new(id, recipient);
         
-        
-        storage.owners.at(recipient).insert(&mut recipient_note);
+        let owner = context.msg_sender();
+        let options = NoteGetterOptions::new();
+        let owner_notes = storage.owners.at(owner);
+        let maybe_notes = owner_notes.get_notes(options);
+        let mut flag = false;
+        for i in 0..maybe_notes.len() {
+            let j = i as u8;
+            if (maybe_notes[i].is_some()) {
+                let note = maybe_notes[i].unwrap_unchecked();
+                if (id as u32 == note.address as u32) {
+                    storage.owners.at(owner).remove(note);
+                    flag = true;
+                }
+            }
+        }
+        if flag {
+            let mut recipient_note = AddressNote::new(id, recipient);
+            storage.owners.at(recipient).insert(&mut recipient_note);
+            let recipient_notes = storage.owners.at(recipient);
+            let new_owner_key = get_public_key(recipient);
+            emit_encrypted_log(
+                &mut context,
+                context.this_address(),
+                recipient_notes.storage_slot,
+                new_owner_key,
+                recipient_note.serialize(),
+            );
+        }
         //storage.owners.at(id).replace(&mut recipient_note);
     }
 
@@ -153,6 +189,95 @@ contract PN721 {
         //context.call_public_function(context.this_address(), selector, [maybe_notes.len()]);
         assert (maybe_notes[n - 1].is_some());
 
+    }
+
+    #[aztec(private)]
+    fn is_subscriber(proj: Field, now: Field) {
+        let owner = context.msg_sender();
+        let options = NoteGetterOptions::new();
+        let owner_notes = storage.owners.at(owner);
+        let maybe_notes = owner_notes.get_notes(options);
+        let mut assets_: [Field;5] = [0,0,0,0,0];
+        for i in 0..maybe_notes.len() {
+            let j = i as u8;
+            if ((maybe_notes[i].is_some()) & (j < 5)) {
+                let note = maybe_notes[i].unwrap_unchecked();
+                assets_[i] = note.address;
+            }
+        }
+        let assets = assets_;
+        let selector = compute_selector("_check_access(Field,Field,Field,Field,Field,Field,Field)");
+        //let selector = compute_selector("_check_access([Field;10],Field,Field,Field)");
+        context.call_public_function(context.this_address(), selector, [assets[0],assets[1],assets[2],assets[3],assets[4],proj,now]);
+
+    }
+    #[aztec(public)]
+    internal fn _check_access(asset1: Field, asset2: Field, asset3: Field, asset4: Field, asset5: Field, proj_: Field, now_: Field) {
+        let mut flag = false;
+        let mut tmax = 0 as u32;
+        let proj = proj_ as u32;
+        let now = now_ as u32;
+        if (asset1 != 0){
+            let nft_data = storage.nft_data.at(asset1).read();
+            let t = nft_data.tier as u32;
+            let p = nft_data.project as u32;
+            let c = nft_data.creation as u32;
+            if ((p == proj) & (now < (c + 30) )) {
+                flag = true;
+                if (t > tmax) {
+                    tmax = t;
+                }
+            }
+        }
+        if (asset2 != 0){
+            let nft_data = storage.nft_data.at(asset2).read();
+            let t = nft_data.tier as u32;
+            let p = nft_data.project as u32;
+            let c = nft_data.creation as u32;
+            if ((p == proj) & (now < (c + 30) )) {
+                flag = true;
+                if (t > tmax) {
+                    tmax = t;
+                }
+            }
+        }
+        if (asset3 != 0){
+            let nft_data = storage.nft_data.at(asset3).read();
+            let t = nft_data.tier as u32;
+            let p = nft_data.project as u32;
+            let c = nft_data.creation as u32;
+            if ((p == proj) & (now < (c + 30) )) {
+                flag = true;
+                if (t > tmax) {
+                    tmax = t;
+                }
+            }
+        }
+        if (asset4 != 0){
+            let nft_data = storage.nft_data.at(asset4).read();
+            let t = nft_data.tier as u32;
+            let p = nft_data.project as u32;
+            let c = nft_data.creation as u32;
+            if ((p == proj) & (now < (c + 30) )) {
+                flag = true;
+                if (t > tmax) {
+                    tmax = t;
+                }
+            }
+        }
+        if (asset5 != 0){
+            let nft_data = storage.nft_data.at(asset5).read();
+            let t = nft_data.tier as u32;
+            let p = nft_data.project as u32;
+            let c = nft_data.creation as u32;
+            if ((p == proj) & (now < (c + 30) )) {
+                flag = true;
+                if (t > tmax) {
+                    tmax = t;
+                }
+            }
+        }
+        assert (tmax == 3);
     }
 
 
