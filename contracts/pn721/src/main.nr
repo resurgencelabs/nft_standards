@@ -86,7 +86,7 @@ contract PN721 {
     }
 
    
-
+    // The public mint function, to mint a new NFT, to be used in tandem with mint_private function
     #[aztec(public)]
     fn mint(proj: Field, tr: Field, now: Field) -> Field{
         
@@ -113,7 +113,8 @@ contract PN721 {
         assert (size == id);
     }
 
-    // Mints nft with said specifications and assigns ownership to owner
+    // The other half of the minting function, alongside mint() and it assigns ownership to the caller of the NFT 
+    // whose id is provided as argument. The id fetched from the mint() function should be the id provided as argument
     #[aztec(private)]
     fn mint_private( 
         id: Field
@@ -139,7 +140,7 @@ contract PN721 {
         );
     }
 
-    // Transfers nft with given `id` from msg_sender to  `recipient`.
+    // Transfers nft with given `id` from msg_sender to  `recipient`. This doesn't alter the public_payload of the NFT
     #[aztec(private)]
     fn transfer(
         id: Field, 
@@ -176,9 +177,12 @@ contract PN721 {
                 recipient_note.serialize(),
             );
         }
-        //storage.owners.at(id).replace(&mut recipient_note);
+        
     }
 
+
+    // Reads all notes under the given caller id Field, and asserts if the number of such notes is
+    // at least n
     #[aztec(private)]
     fn read_all_notes(n: Field){
         let owner = context.msg_sender();
@@ -191,96 +195,62 @@ contract PN721 {
 
     }
 
+    // checks if the user if a subscriber of the given tier for the given project, with the current timestamp
+    // also being provided as an argument
     #[aztec(private)]
-    fn is_subscriber(proj: Field, now: Field) {
+    fn is_subscriber(proj: Field, tier: Field, now: Field) {
         let owner = context.msg_sender();
         let options = NoteGetterOptions::new();
         let owner_notes = storage.owners.at(owner);
         let maybe_notes = owner_notes.get_notes(options);
-        let mut assets_: [Field;5] = [0,0,0,0,0];
+        let mut assets_: [Field;13] = [0,0,0,0,0,0,0,0,0,0,0,0,0];
         for i in 0..maybe_notes.len() {
             let j = i as u8;
-            if ((maybe_notes[i].is_some()) & (j < 5)) {
+            if ((maybe_notes[i].is_some()) & (j < 10)) {
                 let note = maybe_notes[i].unwrap_unchecked();
                 assets_[i] = note.address;
             }
         }
+        assets_[10] = proj;
+        assets_[11] = tier;
+        assets_[12] = now;
         let assets = assets_;
-        let selector = compute_selector("_check_access(Field,Field,Field,Field,Field,Field,Field)");
+        let selector = compute_selector("_check_access([Field;13])");
         //let selector = compute_selector("_check_access([Field;10],Field,Field,Field)");
-        context.call_public_function(context.this_address(), selector, [assets[0],assets[1],assets[2],assets[3],assets[4],proj,now]);
+        context.call_public_function(context.this_address(), selector, assets);
 
     }
+
+    // internal function that short circuits if user has no NFT to grant access for given project and tier
     #[aztec(public)]
-    internal fn _check_access(asset1: Field, asset2: Field, asset3: Field, asset4: Field, asset5: Field, proj_: Field, now_: Field) {
+    internal fn _check_access(assets: [Field;13]) {
         let mut flag = false;
         let mut tmax = 0 as u32;
-        let proj = proj_ as u32;
-        let now = now_ as u32;
-        if (asset1 != 0){
-            let nft_data = storage.nft_data.at(asset1).read();
-            let t = nft_data.tier as u32;
-            let p = nft_data.project as u32;
-            let c = nft_data.creation as u32;
-            if ((p == proj) & (now < (c + 30) )) {
-                flag = true;
-                if (t > tmax) {
-                    tmax = t;
+        let proj = assets[10] as u32;
+        let tier = assets[11] as u32;
+        let now = assets[12] as u32;
+        for i in 0..10{
+            let asset = assets[i];
+            if (asset != 0){
+                let nft_data = storage.nft_data.at(asset).read();
+                let t = nft_data.tier as u32;
+                let p = nft_data.project as u32;
+                let c = nft_data.creation as u32;
+                if ((p == proj) & (now < (c + 30) )) {
+                    flag = true;
+                    if (t > tmax) {
+                        tmax = t;
+                    }
                 }
             }
         }
-        if (asset2 != 0){
-            let nft_data = storage.nft_data.at(asset2).read();
-            let t = nft_data.tier as u32;
-            let p = nft_data.project as u32;
-            let c = nft_data.creation as u32;
-            if ((p == proj) & (now < (c + 30) )) {
-                flag = true;
-                if (t > tmax) {
-                    tmax = t;
-                }
-            }
-        }
-        if (asset3 != 0){
-            let nft_data = storage.nft_data.at(asset3).read();
-            let t = nft_data.tier as u32;
-            let p = nft_data.project as u32;
-            let c = nft_data.creation as u32;
-            if ((p == proj) & (now < (c + 30) )) {
-                flag = true;
-                if (t > tmax) {
-                    tmax = t;
-                }
-            }
-        }
-        if (asset4 != 0){
-            let nft_data = storage.nft_data.at(asset4).read();
-            let t = nft_data.tier as u32;
-            let p = nft_data.project as u32;
-            let c = nft_data.creation as u32;
-            if ((p == proj) & (now < (c + 30) )) {
-                flag = true;
-                if (t > tmax) {
-                    tmax = t;
-                }
-            }
-        }
-        if (asset5 != 0){
-            let nft_data = storage.nft_data.at(asset5).read();
-            let t = nft_data.tier as u32;
-            let p = nft_data.project as u32;
-            let c = nft_data.creation as u32;
-            if ((p == proj) & (now < (c + 30) )) {
-                flag = true;
-                if (t > tmax) {
-                    tmax = t;
-                }
-            }
-        }
-        assert (tmax == 3);
+        
+       
+        assert (tmax >= tier);
     }
 
 
+    // gets all PUBLIC data for given NFT
     unconstrained fn getData(
         id: Field,
     ) -> [Field; 3] {
@@ -298,11 +268,13 @@ contract PN721 {
         
     }
 
+    // gets the admin for the said contract
     unconstrained fn getAdmin() -> Field {
         let admin = storage.admin.read();
         admin.address
     }
 
+    // outputs the size of the NFT collection
     unconstrained fn getSize() -> Field {
         let s = storage.size.read();
         s
