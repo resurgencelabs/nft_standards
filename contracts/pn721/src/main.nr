@@ -126,7 +126,7 @@ contract PN721 {
         let mut owner_note = AddressNote::new(id, owner);
 
         let owner_set = storage.owners.at(owner);
-        owner_set.insert(&mut owner_note);
+        owner_set.insert(&mut owner_note, false);
         //storage.owners.at(new_size).replace(&mut owner_note);
         
         // Emit the newly created encrypted note preimages via oracle calls.
@@ -166,7 +166,7 @@ contract PN721 {
         }
         if flag {
             let mut recipient_note = AddressNote::new(id, recipient);
-            storage.owners.at(recipient).insert(&mut recipient_note);
+            storage.owners.at(recipient).insert(&mut recipient_note, false);
             let recipient_notes = storage.owners.at(recipient);
             let new_owner_key = get_public_key(recipient);
             emit_encrypted_log(

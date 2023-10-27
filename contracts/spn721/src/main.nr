@@ -71,7 +71,7 @@ contract SPN721 {
         let mut owner_note = AssetNote::new(owner, proj, tr, exp, cd);
 
         let owner_set = storage.nft_data.at(owner);
-        owner_set.insert(&mut owner_note);
+        owner_set.insert(&mut owner_note, false);
     
         
         // Emit the newly created encrypted note preimages via oracle calls.
@@ -117,7 +117,7 @@ contract SPN721 {
         }
         if flag {
             let mut recipient_note = AssetNote::new(recipient, proj, tr, exp, cd);
-            storage.nft_data.at(recipient).insert(&mut recipient_note);
+            storage.nft_data.at(recipient).insert(&mut recipient_note, false);
             let recipient_notes = storage.nft_data.at(recipient);
             let new_owner_key = get_public_key(recipient);
             emit_encrypted_log(
