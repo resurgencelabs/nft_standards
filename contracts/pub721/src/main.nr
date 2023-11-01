@@ -152,8 +152,13 @@ contract PUB721 {
             
             
         }
-        assert (tmax >= tier as u32);
-        1
+        if (tmax >= tier as u32) {
+            1
+        }
+        else {
+            0
+        }
+        
     }
 
     
